@@ -1,16 +1,16 @@
 /*
-* Copyright (c) 2017 - 2020, Mohammed Elbadry
-*
-*
-* This file is part of V-MAC (Pub/Sub data-centric Multicast MAC layer)
-*
-* V-MAC is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 
-* 4.0 International License.
-* 
-* You should have received a copy of the license along with this
-* work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
-* 
-*/
+ * Copyright (c) 2017 - 2020, Mohammed Elbadry
+ *
+ *
+ * This file is part of V-MAC (Pub/Sub data-centric Multicast MAC layer)
+ *
+ * V-MAC is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike
+ * 4.0 International License.
+ *
+ * You should have received a copy of the license along with this
+ * work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
+ *
+ */
 
 #include "vmac.h"
 /* cleanup */
@@ -20,9 +20,9 @@
  * @brief      Clean up encoding from encoding table (occurs per encoding timeout)
  *
  * @param[in]  data  The data: pointer to encoding cleanup struct
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  * check type of struct (i.e. tx or rx)
  * If type of cleaning is for receiving struct
@@ -46,25 +46,24 @@
  *  @endcode
  */
 
-void process (struct enc_cleanup* clean)
+void process(struct enc_cleanup *clean)
 {
-    struct encoding_rx* vmacr;
-    struct encoding_tx* vmact;
+    struct encoding_rx *vmacr;
+    struct encoding_tx *vmact;
     int i;
-    if(clean->type == CLEAN_ENC_RX)
+    if (clean->type == CLEAN_ENC_RX)
     {
-        #ifdef DEBUG_MO
-            printk(KERN_INFO "CLEAN: starting process \n");
-        #endif
-        vmacr= find_rx(RX_TABLE, clean->enc);
+#ifdef DEBUG_MO
+        printk(KERN_INFO "CLEAN: starting process %s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+#endif
+        vmacr = find_rx(RX_TABLE, clean->enc);
         if (!vmacr || vmacr == NULL)
         {
             return;
         }
-        
-        printk(KERN_INFO "CLEAN: removing element\n");        
-     /* if(vmacr->dac_info.dack)
-        kfree_skb(vmacr->dac_info.dack); mo */
+        printk(KERN_INFO "CLEAN: removing element %s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+        /* if(vmacr->dac_info.dack)
+           kfree_skb(vmacr->dac_info.dack); mo */
         hash_del(&vmacr->node);
         vfree(vmacr);
     }
@@ -72,20 +71,19 @@ void process (struct enc_cleanup* clean)
     {
         vmact = find_tx(TX_TABLE, clean->enc);
         {
-
         }
         if (!vmact || vmact == NULL)
         {
             return;
         }
-        #ifdef DEBUG_MO
-            printk(KERN_INFO "VMAC_CLEAN: tx emptying buffer\n");
-        #endif
-        for(i = 0; i < (vmact->seq < WINDOW_TX ? vmact->seq : WINDOW_TX); i++)
-        {
-            if(vmact->retransmission_buffer[i])
-               kfree_skb(vmact->retransmission_buffer[i]);
-        }
+#ifdef DEBUG_MO
+        printk(KERN_INFO "VMAC_CLEAN: tx emptying buffer %s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+#endif
+        // for (i = 0; i < (vmact->seq < WINDOW_TX ? vmact->seq : WINDOW_TX); i++)
+        // {
+        //     if (vmact->retransmission_buffer[i])
+        //         kfree_skb(vmact->retransmission_buffer[i]);
+        // }
         hash_del(&vmact->node);
         vfree(vmact);
     }
@@ -94,46 +92,45 @@ void process (struct enc_cleanup* clean)
  * @brief     clean up for receiving struct called by timer
  *
  * @param      t     time struct passing pointer to receving struct
- * 
+ *
  * Pseudo Code
  * @code{.unparsed}
  * Set type of struct to receiving struct
  * Call process function to handle emptying memory within.
  * @endcode
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
 void __cleanup_rx(struct timer_list *t)
 {
-    struct encoding_rx* vmacr = from_timer(vmacr, t, enc_timeout);
+    struct encoding_rx *vmacr = from_timer(vmacr, t, enc_timeout);
     if (vmacr)
     {
-        #ifdef DEBUG_VMAC
-            printk(KERN_INFO"VMAC_CLEAN: rx cleaning started \n");
-        #endif
+#ifdef DEBUG_VMAC
+        printk(KERN_INFO "VMAC_CLEAN: rx cleaning started \n");
+#endif
         vmacr->clean.type = CLEAN_ENC_RX;
         process(&vmacr->clean);
     }
-    
 }
 /**
  * @brief      clean up for transmission struct called by timer
  *
  * @param      t     time struct passing pointer to receving struct
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  * Set type of struct to transmission struct
  * Call process function to handle emptying memory within.
  * @endcode
  */
 void __cleanup_tx(struct timer_list *t)
-{    
-    struct encoding_tx* vmact = from_timer(vmact, t, enc_timeout);
+{
+    struct encoding_tx *vmact = from_timer(vmact, t, enc_timeout);
     if (vmact)
     {
         vmact->clean.type = CLEAN_ENC_TX;
-        process(&vmact->clean);            
+        process(&vmact->clean);
     }
 }
 /**
@@ -144,7 +141,7 @@ void __cleanup_tx(struct timer_list *t)
 #else
 void __cleanup(unsigned long data)
 {
-    struct enc_cleanup* clean=(struct enc_cleanup*)data;
+    struct enc_cleanup *clean = (struct enc_cleanup *)data;
     process(clean);
 }
 #endif

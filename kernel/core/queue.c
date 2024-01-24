@@ -1,41 +1,40 @@
 /*
-* Copyright (c) 2017 - 2020, Mohammed Elbadry
-*
-*
-* This file is part of V-MAC (Pub/Sub data-centric Multicast MAC layer)
-*
-* V-MAC is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 
-* 4.0 International License.
-* 
-* You should have received a copy of the license along with this
-* work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
-* 
-*/
+ * Copyright (c) 2017 - 2020, Mohammed Elbadry
+ *
+ *
+ * This file is part of V-MAC (Pub/Sub data-centric Multicast MAC layer)
+ *
+ * V-MAC is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike
+ * 4.0 International License.
+ *
+ * You should have received a copy of the license along with this
+ * work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
+ *
+ */
 #include "vmac.h"
 #include <linux/rhashtable.h>
 struct vmac_queue uqueue; /* upper layer frames queueu */
 struct vmac_queue mqueue; /* v-mac frames queue (i.e. DACK/retransmission/etc...) */
-struct vmac_queue rx_upper; 
+struct vmac_queue rx_upper;
 struct vmac_queues_status questatus;
 
-
 /**
-  * @brief    Starts 2 queue threads
-  * - queuethread: handles passing management frames from core to hardware and
-  *   non-management frames to hardware in that order (i.e. handles 2 queues).
-  * - rqueuethread: handles passing received management frames from
-  *   low-drivers to V-MAC core for processing
-  */ 
+ * @brief    Starts 2 queue threads
+ * - queuethread: handles passing management frames from core to hardware and
+ *   non-management frames to hardware in that order (i.e. handles 2 queues).
+ * - rqueuethread: handles passing received management frames from
+ *   low-drivers to V-MAC core for processing
+ */
 void queue_start(void)
 {
-    if (kthread_run(&queuethread, (void*)0, "tx1"))
+    if (kthread_run(&queuethread, (void *)0, "tx1"))
     {
-        printk(KERN_INFO"VMAC: tx thread created\n");
+        printk(KERN_INFO "VMAC: tx thread created\n");
     }
 
-    if (kthread_run(&rqueuethread, (void*)0, "rx"))
+    if (kthread_run(&rqueuethread, (void *)0, "rx"))
     {
-        printk(KERN_INFO"VMAC: rx thread created\n");
+        printk(KERN_INFO "VMAC: rx thread created\n");
     }
 }
 
@@ -47,7 +46,7 @@ void queue_init(void)
     INIT_LIST_HEAD(&uqueue.list);
     INIT_LIST_HEAD(&mqueue.list);
     INIT_LIST_HEAD(&rx_upper.list);
-    
+
     spin_lock_init(&questatus.flock);
     spin_lock_init(&questatus.mlock);
     spin_lock_init(&questatus.rlock);
@@ -61,21 +60,20 @@ void queue_init(void)
  * @param[in]  type    The type
  * @param      seq    The sequence
  * @param      rate    The rate (255==frame rate adaptation)
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  *  call vmac_tx directly and casting types correctly
  * @endcode
- * 
+ *
  * @NOTE: Was here due to existing queuing mechanism used for constrained devices, not needed on Pi4 nor nvidia platforms.
- *  
+ *
  */
 void enq_usrqueue(struct sk_buff *skb2, char *enc, u8 type, char *seq, char *rate)
 {
-    vmac_tx(skb2, (*(uint64_t*)(enc)), type, (*(uint8_t*) rate), (*(uint16_t*)(seq)));
+    vmac_tx(skb2, (*(uint64_t *)(enc)), type, (*(uint8_t *)rate), (*(uint16_t *)(seq)));
 }
-
 
 /**
  * @brief    queues frames after vmac_tx to be queued before vmac_low_tx for
@@ -84,9 +82,9 @@ void enq_usrqueue(struct sk_buff *skb2, char *enc, u8 type, char *seq, char *rat
  * @param      skb    The socket buffer
  * @param[in]  seq    The sequence
  * @param[in]  rate    The rate
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  *  allocate struct for queue entry (physical memory i.e. kmalloc)
  *  insert skb into struct
@@ -104,7 +102,7 @@ void enq_uqueue(struct sk_buff *skb, u16 seq, u8 rate)
         entry->rate = rate;
         entry->seq = seq;
         spin_lock(&questatus.flock);
-        list_add_tail(&(entry->list),&(uqueue.list)); 
+        list_add_tail(&(entry->list), &(uqueue.list));
         spin_unlock(&questatus.flock);
     }
 }
@@ -115,9 +113,9 @@ void enq_uqueue(struct sk_buff *skb, u16 seq, u8 rate)
  *
  * @param      skb    The socket buffer (i.e. frame)
  * @param[in]  rate    The rate
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  *  allocate struct for queue entry (physical memory i.e. kmalloc)
  *  insert skb into struct
@@ -126,7 +124,7 @@ void enq_uqueue(struct sk_buff *skb, u16 seq, u8 rate)
  *  unlock mlock
  * @endcode
  */
-void retrx(struct sk_buff* skb, u8 rate)
+void retrx(struct sk_buff *skb, u8 rate)
 {
     struct vmac_queue *entry = kmalloc(sizeof(struct vmac_queue), GFP_KERNEL);
     if (entry)
@@ -134,7 +132,7 @@ void retrx(struct sk_buff* skb, u8 rate)
         entry->frame = skb;
         entry->rate = rate;
         spin_lock(&questatus.mlock);
-        list_add_tail(&(entry->list), &(mqueue.list)); 
+        list_add_tail(&(entry->list), &(mqueue.list));
         spin_unlock(&questatus.mlock);
     }
 }
@@ -143,9 +141,9 @@ void retrx(struct sk_buff* skb, u8 rate)
  * @brief    adds DACK frame to management queue to be transmitted --frame gets handled by queueuthread thread after this function
  *
  * @param      skb    The socket buffer containing DACK
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  *  allocate struct for queue entry (physical memory i.e. kmalloc)
  *  insert skb into struct
@@ -157,16 +155,15 @@ void retrx(struct sk_buff* skb, u8 rate)
  */
 void add_DACK(struct sk_buff *skb)
 {
-    struct vmac_queue *entry = (struct vmac_queue*) kmalloc(sizeof(struct vmac_queue), GFP_KERNEL);
+    struct vmac_queue *entry = (struct vmac_queue *)kmalloc(sizeof(struct vmac_queue), GFP_KERNEL);
     if (entry)
     {
         entry->frame = skb;
-        entry->rate = 1;        
+        entry->rate = 1;
         spin_lock(&questatus.mlock);
         list_add_tail(&(entry->list), &(mqueue.list));
-        spin_unlock(&questatus.mlock);    
+        spin_unlock(&questatus.mlock);
     }
-    
 }
 
 /**
@@ -175,9 +172,9 @@ void add_DACK(struct sk_buff *skb)
  * @param      data  The data
  *
  * @return     0
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  * while true
  *  if management frames queue counter is not 0
@@ -188,7 +185,7 @@ void add_DACK(struct sk_buff *skb)
  *          store frame from management frames queue to tmp
  *          if tmp structure has rate value 255 (i.e. use default low data rate)
  *              assigned it value for 30Mbps
- *          else 
+ *          else
  *              use rate defined by structure from V-MAC core.
  *          End If
  *          call vmac_low_tx passing frame and data rate of frame
@@ -207,7 +204,7 @@ void add_DACK(struct sk_buff *skb)
  *          store frame from management frames queue to tmp
  *          if tmp structure has rate value 255 (i.e. use default low data rate)
  *              assigned it value for 30 Mbps rate
- *          Else 
+ *          Else
  *              use rate defined by structure from V-MAC core.
  *          End If
  *          call vmac_low_tx passing frame and data rate of frame
@@ -216,21 +213,21 @@ void add_DACK(struct sk_buff *skb)
  *          unlock upper layer frames queue lock
  *          free tmp
  *      End Iteration
- *  End If    
- * End While     
+ *  End If
+ * End While
  * @endcode
  */
 int queuethread(void *data)
 {
     struct list_head *pos, *q;
     struct vmac_queue *tmp;
-    struct ieee80211_local *local = NULL; 
+    struct ieee80211_local *local = NULL;
     u8 ratetmp;
     msleep(500); /* This is necessary to wait for hardware and local to be initialized before checking DMA */
-    while(1)
+    while (1)
     {
         usleep_range(100, 400);
-        if(local == NULL)
+        if (local == NULL)
         {
             local = hw_to_local(getvhw());
         }
@@ -241,10 +238,10 @@ int queuethread(void *data)
             if (local->ops->get_stats(&local->hw, NULL) == -1)
             {
                 break;
-            }    
-            #ifdef DEBUG_MO
-                printk(KERN_INFO "sending DACK/retrx \n", questatus.hrd_q);
-            #endif
+            }
+#ifdef DEBUG_MO
+            printk(KERN_INFO "sending DACK/retrx \n", questatus.hrd_q);
+#endif
             tmp = list_entry(pos, struct vmac_queue, list);
             ratetmp = 13 + 0x40 + 0x80; /* 30Mbps for DACK by default and retrx for now */
             vmac_low_tx(tmp->frame, ratetmp);
@@ -254,12 +251,12 @@ int queuethread(void *data)
             spin_unlock(&questatus.mlock);
             kfree(tmp);
         }
-        
+
         /* uqueue Iteration for frames coming from upper layer */
         list_for_each_safe(pos, q, &uqueue.list)
         {
 
-            if(local->ops->get_stats(&local->hw, NULL) == -1)
+            if (local->ops->get_stats(&local->hw, NULL) == -1)
             {
                 break;
             }
@@ -268,11 +265,11 @@ int queuethread(void *data)
             {
                 ratetmp = 13 + 0x40 + 0x80; /* 30 Mbps */
             }
-            else 
+            else
             {
                 ratetmp = tmp->rate;
             }
-            vmac_low_tx(tmp->frame, ratetmp);                        
+            vmac_low_tx(tmp->frame, ratetmp);
             spin_lock(&questatus.flock);
             list_del_init(pos);
             spin_unlock(&questatus.flock);
@@ -287,9 +284,9 @@ int queuethread(void *data)
  * order (Note: managment frames are computing intensive)
  *
  * @param      skb    The socket buffer of the frame
- * 
+ *
  * Pseudo Code
- * 
+ *
  * @code{.unparsed}
  *  allocate struct for queue entry (physical memory i.e. kmalloc)
  *  insert skb into struct
@@ -298,14 +295,14 @@ int queuethread(void *data)
  *  unlock received management queue
  * @endcode
  */
-void add_mgmt(struct sk_buff* skb)
+void add_mgmt(struct sk_buff *skb)
 {
-    struct vmac_queue* entry = (struct vmac_queue*)kmalloc(sizeof(struct vmac_queue), GFP_KERNEL);
+    struct vmac_queue *entry = (struct vmac_queue *)kmalloc(sizeof(struct vmac_queue), GFP_KERNEL);
     if (entry)
-    {        
-        entry->frame=skb;
+    {
+        entry->frame = skb;
         spin_lock(&questatus.rlock);
-        list_add_tail(&(entry->list),&(rx_upper.list));
+        list_add_tail(&(entry->list), &(rx_upper.list));
         spin_unlock(&questatus.rlock);
     }
 }
@@ -335,24 +332,27 @@ void add_mgmt(struct sk_buff* skb)
  *  End While
  * @endcode
  */
-int rqueuethread(void* data)
+int rqueuethread(void *data)
 {
     struct list_head *pos, *q;
-    struct vmac_queue* tmp;
-    while(1)
+    struct vmac_queue *tmp;
+    while (1)
     {
-        usleep_range(10,200);
+        usleep_range(10, 200);
         pos = NULL;
         q = NULL;
         list_for_each_safe(pos, q, &rx_upper.list)
         {
-            tmp=list_entry(pos,struct vmac_queue,list);
+            tmp = list_entry(pos, struct vmac_queue, list);
             vmac_rx(tmp->frame);
+            printk(KERN_INFO "after the vmac_rx %s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
             spin_lock(&questatus.rlock);
-            list_del_init(pos); 
+            list_del_init(pos);
+            printk(KERN_INFO "list_del_init %s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
             spin_unlock(&questatus.rlock);
             tmp->frame = NULL;
-            kfree(tmp);                
+            kfree(tmp);
+            printk(KERN_INFO "kfree tmp %s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
         }
     }
 }

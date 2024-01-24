@@ -2,7 +2,7 @@
  *      stress-test.c - User space code to run VMAC tests
  *      Mohammed Elbadry <mohammed.elbadry@stonybrook.edu>
  *      Tejas Menon  <tejas.menon@stonybrook.edu>
- *      
+ *
  */
 
 #include <inttypes.h>
@@ -52,26 +52,28 @@
 pthread_t thread;
 pthread_t sendth;
 pthread_t appth;
-volatile int running2=0;
+volatile int running2 = 0;
 volatile int total;
-volatile int consumer=0;
-volatile int producer=0;
-int times=0;
-FILE *sptr,*cptr,*fptr;
-double loss=0.0;
+volatile int consumer = 0;
+volatile int producer = 0;
+int times = 0;
+FILE *sptr, *cptr, *fptr;
+double loss = 0.0;
 int c;
 struct tm *loc;
-unsigned int count =0;
+unsigned int count = 0;
 long ms;
 time_t s;
 struct timespec spec;
 int window[1500];
 double intTime;
 int newret = 0;
+int first = 0;
+double startTime;
 
 FILE *logFile;
 
-double getRate(	uint8_t rix,uint8_t bw, uint8_t sgi, uint8_t stream);
+double getRate(uint8_t rix, uint8_t bw, uint8_t sgi, uint8_t stream);
 /**
  * vmac_send_interest  - Sends interest packet
  *
@@ -84,17 +86,17 @@ double getRate(	uint8_t rix,uint8_t bw, uint8_t sgi, uint8_t stream);
  *
  * @return     void
  */
-void *vmac_send_interest(void* tid)
+void *vmac_send_interest(void *tid)
 {
-    //double time1,time2,timediff=0;
-    int s,bw,r,sgi;
+    // double time1,time2,timediff=0;
+    int s, bw, r, sgi;
     int counter1;
-	char rateStr[1500];
+    char rateStr[1500];
     int i;
-    char* dataname="chat";
-    uint16_t name_len=strlen(dataname);
-    char buffer[1593]="bufferaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    total=0;
+    char *dataname = "chat";
+    uint16_t name_len = strlen(dataname);
+    char buffer[1593] = "buffer";
+    total = 0;
     struct vmac_frame frame;
     struct meta_data meta;
     int counter = 0;
@@ -102,40 +104,40 @@ void *vmac_send_interest(void* tid)
     meta.bw = 1;
     meta.sgi = 1;
     meta.stream = 1;
-    while(1)
+    while (1)
     {
         total = 0;
         frame.buf = buffer;
         frame.len = 1500;
         frame.InterestName = dataname;
         frame.name_len = 4;
-        meta.type = VMAC_FC_ANN;       
-        for(s = 0; s<2 ; s++)// S = 0 is spatial stream 0, S =1 is spatial stream 1 
+        meta.type = VMAC_FC_INT;
+        for (s = 0; s < 1; s++) // S = 0 is spatial stream 0, S =1 is spatial stream 1
         {
-          for(bw =0; bw<2;bw++) //BW= 0 is 20MHz BW, BW = 1 is 40MHz BW
-          {
-            for(sgi= 0; sgi<2;sgi++) // sgi = 1 mean short guard interval is enabled, sgi = 0 mean short guard interval disabled.
+            for (bw = 0; bw < 1; bw++) // BW= 0 is 20MHz BW, BW = 1 is 40MHz BW
             {
-              for(r =0; r<10;r++) // r is the rate idx passed to the phy
-              {
-                // Update the meta parameters
-                meta.bw = bw;
-                meta.sgi = sgi;
-                meta.stream = s;
-                meta.rate = r;                
-	        double rate = getRate(meta.rate, meta.bw, meta.sgi, meta.stream);	
-	        sprintf(rateStr, "%d ", total++);
-		strcat(rateStr,buffer);		
-		frame.buf = rateStr;
-		//Perform back to back transmission for a data rate for 15 seconds 
-		printf(" Transfer data : Stream = %d bw =%d rate idx = %d sgi = %d\n",meta.stream ,meta.bw,meta.rate,meta.sgi);
-		send_vmac(&frame, &meta);
-              }
+                for (sgi = 0; sgi < 1; sgi++) // sgi = 1 mean short guard interval is enabled, sgi = 0 mean short guard interval disabled.
+                {
+                    for (r = 0; r < 1; r++) // r is the rate idx passed to the phy
+                    {
+                        // Update the meta parameters
+                        meta.bw = bw;
+                        meta.sgi = sgi;
+                        meta.stream = s;
+                        meta.rate = 3;
+                        double rate = getRate(meta.rate, meta.bw, meta.sgi, meta.stream);
+                        sprintf(rateStr, "%d ", total++);
+                        strcat(rateStr, buffer);
+                        frame.buf = rateStr;
+                        // Perform back to back transmission for a data rate for 15 seconds
+                        printf(" Transfer data : Stream = %d bw =%d rate idx = %d sgi = %d\n", meta.stream, meta.bw, meta.rate, meta.sgi);
+                        send_vmac(&frame, &meta);
+                    }
+                }
             }
-          }
         }
-        printf("Sleep for 60s after transfer of data for all data rates\n");    
-        sleep(60);     
+        printf("Sleep for 60s after transfer of data for all data rates\n");
+        sleep(60);
     }
 }
 
@@ -149,22 +151,24 @@ void *vmac_send_interest(void* tid)
  *  not run as thread. Default value of 0 to be used
  */
 
-void *vmac_send_data(void* tid)
+void *vmac_send_data(void *tid)
 {
-    
-    char* dataname="chat";
-    char sel='a';
+
+    char *dataname = "chat";
+    char sel = 'a';
     char msgy[1024];
     int i = 0, j = 0;
     uint16_t name_len = strlen(dataname);
-    uint16_t len = 1023;  
+    uint16_t len = 1023;
     struct vmac_frame frame;
     struct meta_data meta;
     running2 = 1;
-    printf("Sleeping for 15 seconds\n");
-    sleep(15);
+    // printf("Sleeping for 15 seconds\n");
+    printf("Sleeping for 3 seconds\n");
+    // sleep(15);
+    sleep(3)
     printf("Sending no.%d\n", times++);
-    memset(msgy,sel,1023);
+    memset(msgy, sel, 1023);
     msgy[1023] = '\0';
     meta.type = VMAC_FC_DATA;
     meta.rate = 60.0;
@@ -172,7 +176,7 @@ void *vmac_send_data(void* tid)
     frame.len = len;
     frame.InterestName = dataname;
     frame.name_len = 4;
-    for(i = 0; i < 50000; i++)
+    for (i = 0; i < 1000; i++)
     {
         meta.seq = i;
 
@@ -189,22 +193,24 @@ void *vmac_send_data(void* tid)
  */
 void callbacktest(struct vmac_frame *frame, struct meta_data *meta)
 {
-    uint8_t type = meta->type; 
+    uint8_t type = meta->type;
     uint64_t enc = meta->enc;
     double goodput;
-    char* buff = frame->buf;
+    char *buff = frame->buf;
     uint16_t len = frame->len;
     uint16_t seq = meta->seq;
-    double frameSize = 0.008928; /* in megabits  1116 bytes after V-MAC and 802.11 headers*/
+    // double frameSize = 0.008928; /* in megabits  1116 bytes after V-MAC and 802.11 headers*/
+    double frameSize = 0.011444;
     uint16_t interestNameLen = frame->name_len;
     double timediff;
-    double waittime = 15; /* 15 seconds waiting/sleep for all interests to come in */
-    clock_gettime(CLOCK_REALTIME,&spec);
+    // double waittime = 15; /* 15 seconds waiting/sleep for all interests to come in */
+    double waittime = 3; /* 15 seconds waiting/sleep for all interests to come in */
+    clock_gettime(CLOCK_REALTIME, &spec);
     s = spec.tv_sec;
     ms = round(spec.tv_nsec / 1.0e6);
     int ret;
-	char *ptr;
-	if (ms > 999) 
+    char *ptr;
+    if (ms > 999)
     {
         s++;
         ms = 0;
@@ -214,28 +220,40 @@ void callbacktest(struct vmac_frame *frame, struct meta_data *meta)
     timediff = timediff - intTime;
     if (type == VMAC_FC_INT && producer == 1 && running2 == 0)
     {
-    //    pthread_create(&sendth, NULL, vmac_send_data, (void*)0);
-        printf("type:%u and seq=%d and count=%u @%"PRIdMAX".%03ld\n", type, seq, count, (intmax_t)s, ms);
+        pthread_create(&sendth, NULL, vmac_send_data, (void *)0);
+        printf("type:%u and seq=%d and count=%u @%" PRIdMAX ".%03ld\n", type, seq, count, (intmax_t)s, ms);
     }
     else if (type == VMAC_FC_DATA && consumer)
     {
         total++;
-        loss = ((double)(500 - total) / 500) * (double) 100;
+        loss = ((double)(1000 - total) / 1000) * (double)100;
         goodput = (double)(total * frameSize) / (timediff - waittime);
         printf("type:%u | seq=%d | loss=%f | goodput=%f |T= %f\n", type, seq, loss, goodput, timediff - waittime);
         printf("content= %s \n length =%d\n", frame->buf, frame->len);
     }
-	else if (type == VMAC_FC_ANN && producer == 1 && running2 == 0)
+    else if (type == VMAC_FC_ANN && producer == 1 && running2 == 0)
     {
-        printf("Announcement Frame Received! \n" );
-		//printf("Content= %s \n length =%d\n", frame->buf, frame->len);
-		newret = strtod(frame->buf, &ptr);
-		if(ret > newret)// First Data rate
-		{
-			fprintf(logFile, "NEW TRANSMISSION\n");
-		}
-		newret = ret;
-		fprintf(logFile, "%%d\n",ret);
+        total++;
+        loss = ((double)(1000 - total) / 1000) * (double)100;
+        goodput = (double)(total * frameSize) / (timediff - startTime);
+        printf("total: %d\n", total);
+        printf("type:%u | seq=%d | loss=%f | goodput=%f |T= %f\n", type, seq, loss, goodput, timediff - waittime);
+        // printf("content= %s \n length =%d\n", frame->buf, frame->len);
+        // printf("Announcement Frame Received! \n");
+
+        // printf("Content= %s \n length =%d\n", frame->buf, frame->len);
+        newret = strtod(frame->buf, &ptr);
+        if (ret > newret) // First Data rate
+        {
+            fprintf(logFile, "NEW TRANSMISSION\n");
+        }
+        newret = ret;
+        fprintf(logFile, "%d\n", ret);
+    }
+    if (first == 0)
+    {
+        startTime = timediff;
+        first = 1;
     }
     free(frame);
     free(meta);
@@ -254,8 +272,8 @@ void run_vmac(int weare)
 {
 
     uint8_t type;
-    uint16_t len,name_len;
-    uint8_t flags=0;
+    uint16_t len, name_len;
+    uint8_t flags = 0;
     pthread_t consumerth;
     char dataname[1600];
     char choice;
@@ -263,7 +281,7 @@ void run_vmac(int weare)
     choice = weare;
     if (choice == 0)
     {
-        printf("We are producer\n");    
+        printf("We are producer\n");
         producer = 1;
     }
     else if (choice == 1)
@@ -272,7 +290,7 @@ void run_vmac(int weare)
         running2 = 1;
         producer = 0;
         consumer = 1;
-        pthread_create(&consumerth,NULL,vmac_send_interest,(void*)0);
+        pthread_create(&consumerth, NULL, vmac_send_interest, (void *)0);
     }
 }
 
@@ -285,41 +303,41 @@ void run_vmac(int weare)
  * p or c (Look at DOC Using VMAC sender or VMAC receiver
  */
 
-int  main(int argc, char *argv[]){
-    int weare=0;
-    void (*ptr)()=&callbacktest;
+int main(int argc, char *argv[])
+{
+    int weare = 0;
+    void (*ptr)() = &callbacktest;
     vmac_register(ptr);
-    if(argc < 2 ) 
-    { 
+    if (argc < 2)
+    {
         return -1;
     }
 
-    if (strncmp(argv[1], "p", sizeof(argv[1])) == 0) 
+    if (strncmp(argv[1], "p", sizeof(argv[1])) == 0)
     {
-		logFile = fopen("logFile", "w");
+        logFile = fopen("logFile", "w");
         weare = 0;
-    } 
-    else  
+    }
+    else
     {
-        weare=1;
-    } 
+        weare = 1;
+    }
 
     run_vmac(weare);
-    while (1) 
-    { 
+    while (1)
+    {
         sleep(1);
     }
-    return 1 ;  
+    return 1;
 }
 
-double getRate(	uint8_t rix,uint8_t bw, uint8_t sgi, uint8_t stream)
-{			
-	for( int i = 0; i< RATES_NUM; i++)
-	{
-		if (rates[i].rix == rix && rates[i].bw == bw && rates[i].sgi == sgi  && rates[i].stream == stream)
-		{
-			return rates[i].rate;
-		 
-		}
-	}
+double getRate(uint8_t rix, uint8_t bw, uint8_t sgi, uint8_t stream)
+{
+    for (int i = 0; i < RATES_NUM; i++)
+    {
+        if (rates[i].rix == rix && rates[i].bw == bw && rates[i].sgi == sgi && rates[i].stream == stream)
+        {
+            return rates[i].rate;
+        }
+    }
 }

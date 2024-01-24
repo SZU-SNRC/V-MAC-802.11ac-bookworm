@@ -18,9 +18,6 @@
 
 #define NUM_IOREQ		8
 
-#ifdef PLATFORM_WINDOWS
-	#define MAX_PROT_SZ	64
-#endif
 #ifdef PLATFORM_LINUX
 	#define MAX_PROT_SZ	(64-16)
 #endif
@@ -141,27 +138,9 @@ struct io_req {
 	u8	*pbuf;
 	_sema	sema;
 
-#ifdef PLATFORM_OS_CE
-#ifdef CONFIG_USB_HCI
-	/* URB handler for rtw_write_mem */
-	USB_TRANSFER usb_transfer_write_mem;
-#endif
-#endif
 
 	void (*_async_io_callback)(_adapter *padater, struct io_req *pio_req, u8 *cnxt);
 	u8 *cnxt;
-
-#ifdef PLATFORM_OS_XP
-	PMDL pmdl;
-	PIRP  pirp;
-
-#ifdef CONFIG_SDIO_HCI
-	PSDBUS_REQUEST_PACKET sdrp;
-#endif
-
-#endif
-
-
 };
 
 struct	intf_hdl {
@@ -395,10 +374,12 @@ u32 _rtw_write_port_and_wait(_adapter *adapter, u32 addr, u32 cnt, u8 *pmem, int
 extern void _rtw_write_port_cancel(_adapter *adapter);
 
 #ifdef DBG_IO
-bool match_read_sniff_ranges(u32 addr, u16 len);
-bool match_write_sniff_ranges(u32 addr, u16 len);
-bool match_rf_read_sniff_ranges(u8 path, u32 addr, u32 mask);
-bool match_rf_write_sniff_ranges(u8 path, u32 addr, u32 mask);
+struct rtw_io_sniff_ent;
+const char *rtw_io_sniff_ent_get_tag(const struct rtw_io_sniff_ent *ent);
+const struct rtw_io_sniff_ent *match_read_sniff(_adapter *adapter, u32 addr, u16 len, u32 val);
+const struct rtw_io_sniff_ent *match_write_sniff(_adapter *adapter, u32 addr, u16 len, u32 val);
+bool match_rf_read_sniff_ranges(_adapter *adapter, u8 path, u32 addr, u32 mask);
+bool match_rf_write_sniff_ranges(_adapter *adapter, u8 path, u32 addr, u32 mask);
 
 extern u8 dbg_rtw_read8(_adapter *adapter, u32 addr, const char *caller, const int line);
 extern u16 dbg_rtw_read16(_adapter *adapter, u32 addr, const char *caller, const int line);
@@ -455,10 +436,6 @@ int dbg_rtw_sd_iwrite32(_adapter *adapter, u32 addr, u32 val, const char *caller
 #endif /* CONFIG_SDIO_HCI */
 
 #else /* DBG_IO */
-#define match_read_sniff_ranges(addr, len) _FALSE
-#define match_write_sniff_ranges(addr, len) _FALSE
-#define match_rf_read_sniff_ranges(path, addr, mask) _FALSE
-#define match_rf_write_sniff_ranges(path, addr, mask) _FALSE
 #define rtw_read8(adapter, addr) _rtw_read8((adapter), (addr))
 #define rtw_read16(adapter, addr) _rtw_read16((adapter), (addr))
 #define rtw_read32(adapter, addr) _rtw_read32((adapter), (addr))

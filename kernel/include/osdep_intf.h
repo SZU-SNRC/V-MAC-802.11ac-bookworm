@@ -57,28 +57,7 @@ struct intf_priv {
 #endif
 #endif
 
-#ifdef PLATFORM_OS_XP
-#ifdef CONFIG_SDIO_HCI
-	/* below is for io_rwmem... */
-	PMDL pmdl;
-	PSDBUS_REQUEST_PACKET  sdrp;
-	PSDBUS_REQUEST_PACKET  recv_sdrp;
-	PSDBUS_REQUEST_PACKET  xmit_sdrp;
-
-	PIRP		piorw_irp;
-
-#endif
-#ifdef CONFIG_USB_HCI
-	PURB	piorw_urb;
-	PIRP		piorw_irp;
-	u8 io_irp_cnt;
-	u8 bio_irp_pending;
-	_sema io_retevt;
-#endif
-#endif
-
 };
-
 
 #ifdef CONFIG_R871X_TEST
 	int rtw_start_pseudo_adhoc(_adapter *padapter);
@@ -125,6 +104,7 @@ void rtw_ndev_notifier_unregister(void);
 void rtw_inetaddr_notifier_register(void);
 void rtw_inetaddr_notifier_unregister(void);
 
+#include "../os_dep/linux/rtw_proc.h"
 
 #ifdef CONFIG_IOCTL_CFG80211
 	#include "../os_dep/linux/ioctl_cfg80211.h"
@@ -155,7 +135,7 @@ void rtw_drv_stop_vir_ifaces(struct dvobj_priv *dvobj);
 void rtw_drv_free_vir_ifaces(struct dvobj_priv *dvobj);
 #endif
 
-void rtw_ndev_destructor(struct net_device *ndev);
+void rtw_ndev_destructor(_nic_hdl ndev);
 #ifdef CONFIG_ARP_KEEP_ALIVE
 int rtw_gw_addr_query(_adapter *padapter);
 #endif

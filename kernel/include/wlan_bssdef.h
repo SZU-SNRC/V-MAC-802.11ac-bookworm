@@ -25,7 +25,7 @@
 #define NDIS_802_11_LENGTH_RATES        8
 #define NDIS_802_11_LENGTH_RATES_EX     16
 
-typedef unsigned char   NDIS_802_11_MAC_ADDRESS[6];
+typedef unsigned char   NDIS_802_11_MAC_ADDRESS[ETH_ALEN];
 typedef long    		NDIS_802_11_RSSI;           /* in dBm */
 typedef unsigned char   NDIS_802_11_RATES[NDIS_802_11_LENGTH_RATES];        /* Set of 8 data rates */
 typedef unsigned char   NDIS_802_11_RATES_EX[NDIS_802_11_LENGTH_RATES_EX];  /* Set of 16 data rates */
@@ -77,6 +77,7 @@ typedef enum _NDIS_802_11_NETWORK_INFRASTRUCTURE {
 	Ndis802_11InfrastructureMax,     /* Not a real value, defined as upper bound */
 	Ndis802_11APMode,
 	Ndis802_11Monitor,
+	Ndis802_11_mesh,
 } NDIS_802_11_NETWORK_INFRASTRUCTURE, *PNDIS_802_11_NETWORK_INFRASTRUCTURE;
 
 
@@ -274,7 +275,7 @@ typedef struct _NDIS_802_11_TEST {
 #define NDIS_802_11_LENGTH_RATES        8
 #define NDIS_802_11_LENGTH_RATES_EX     16
 
-typedef unsigned char   NDIS_802_11_MAC_ADDRESS[6];
+typedef unsigned char   NDIS_802_11_MAC_ADDRESS[ETH_ALEN];
 typedef long    		NDIS_802_11_RSSI;           /* in dBm */
 typedef unsigned char   NDIS_802_11_RATES[NDIS_802_11_LENGTH_RATES];        /* Set of 8 data rates */
 typedef unsigned char   NDIS_802_11_RATES_EX[NDIS_802_11_LENGTH_RATES_EX];  /* Set of 16 data rates */
@@ -521,7 +522,12 @@ typedef struct _WLAN_PHY_INFO {
 	u8	SignalStrength;/* (in percentage) */
 	u8	SignalQuality;/* (in percentage) */
 	u8	Optimum_antenna;  /* for Antenna diversity */
-	u8	Reserved_0;
+	u8	is_cck_rate;	/* 1:cck_rate */
+	s8	rx_snr[4];
+#ifdef CONFIG_RTW_80211K
+	u32	free_cnt; 	/* freerun counter */
+	u8	rm_en_cap[5];
+#endif
 } WLAN_PHY_INFO, *PWLAN_PHY_INFO;
 
 typedef struct _WLAN_BCN_INFO {
@@ -547,15 +553,12 @@ enum bss_type {
 /* temporally add #pragma pack for structure alignment issue of
 *   WLAN_BSSID_EX and get_WLAN_BSSID_EX_sz()
 */
-#ifdef PLATFORM_WINDOWS
-#pragma pack(push)
-#pragma pack(1)
-#endif
 typedef struct _WLAN_BSSID_EX {
 	ULONG  Length;
 	NDIS_802_11_MAC_ADDRESS  MacAddress;
 	UCHAR  Reserved[2];/* [0]: IS beacon frame , bss_type*/
 	NDIS_802_11_SSID  Ssid;
+	NDIS_802_11_SSID  mesh_id;
 	ULONG  Privacy;
 	NDIS_802_11_RSSI  Rssi;/* (in dBM,raw data ,get from PHY) */
 	NDIS_802_11_NETWORK_TYPE  NetworkTypeInUse;
@@ -566,13 +569,7 @@ typedef struct _WLAN_BSSID_EX {
 	ULONG  IELength;
 	UCHAR  IEs[MAX_IE_SZ];	/* (timestamp, beacon interval, and capability information) */
 }
-#ifndef PLATFORM_WINDOWS
-__attribute__((packed))
-#endif
 WLAN_BSSID_EX, *PWLAN_BSSID_EX;
-#ifdef PLATFORM_WINDOWS
-#pragma pack(pop)
-#endif
 
 #define BSS_EX_IES(bss_ex) ((bss_ex)->IEs)
 #define BSS_EX_IES_LEN(bss_ex) ((bss_ex)->IELength)
@@ -611,14 +608,15 @@ struct	wlan_network {
 	int	network_type;	/* refer to ieee80211.h for WIRELESS_11A/B/G */
 	int	fixed;			/* set to fixed when not to be removed as site-surveying */
 	systime last_scanned; /* timestamp for the network */
+#ifdef CONFIG_RTW_MESH
+#if CONFIG_RTW_MESH_ACNODE_PREVENT
+	systime acnode_stime;
+	systime acnode_notify_etime;
+#endif
+#endif
 	int	aid;			/* will only be valid when a BSS is joinned. */
 	int	join_res;
 	WLAN_BSSID_EX	network; /* must be the last item */
-	WLAN_BCN_INFO	BcnInfo;
-#ifdef PLATFORM_WINDOWS
-	unsigned char  iebuf[MAX_IE_SZ];
-#endif
-
 };
 
 enum VRTL_CARRIER_SENSE {
@@ -633,15 +631,11 @@ enum VCS_TYPE {
 	CTS_TO_SELF
 };
 
-
-
-
 #define PWR_CAM 0
 #define PWR_MINPS 1
 #define PWR_MAXPS 2
 #define PWR_UAPSD 3
 #define PWR_VOIP 4
-
 
 enum UAPSD_MAX_SP {
 	NO_LIMIT,
@@ -650,7 +644,6 @@ enum UAPSD_MAX_SP {
 	SIX_MSDU
 };
 
-
 /* john */
 #define NUM_PRE_AUTH_KEY 16
 #define NUM_PMKID_CACHE NUM_PRE_AUTH_KEY
@@ -658,35 +651,5 @@ enum UAPSD_MAX_SP {
 /*
 *	WPA2
 */
-
-#ifndef PLATFORM_OS_CE
-typedef struct _PMKID_CANDIDATE {
-	NDIS_802_11_MAC_ADDRESS BSSID;
-	ULONG Flags;
-} PMKID_CANDIDATE, *PPMKID_CANDIDATE;
-
-typedef struct _NDIS_802_11_PMKID_CANDIDATE_LIST {
-	ULONG Version;       /* Version of the structure */
-	ULONG NumCandidates; /* No. of pmkid candidates */
-	PMKID_CANDIDATE CandidateList[1];
-} NDIS_802_11_PMKID_CANDIDATE_LIST, *PNDIS_802_11_PMKID_CANDIDATE_LIST;
-
-
-typedef struct _NDIS_802_11_AUTHENTICATION_ENCRYPTION {
-	NDIS_802_11_AUTHENTICATION_MODE AuthModeSupported;
-	NDIS_802_11_ENCRYPTION_STATUS EncryptStatusSupported;
-
-} NDIS_802_11_AUTHENTICATION_ENCRYPTION, *PNDIS_802_11_AUTHENTICATION_ENCRYPTION;
-
-typedef struct _NDIS_802_11_CAPABILITY {
-	ULONG  Length;
-	ULONG  Version;
-	ULONG  NoOfPMKIDs;
-	ULONG  NoOfAuthEncryptPairsSupported;
-	NDIS_802_11_AUTHENTICATION_ENCRYPTION AuthenticationEncryptionSupported[1];
-
-} NDIS_802_11_CAPABILITY, *PNDIS_802_11_CAPABILITY;
-#endif
-
 
 #endif /* #ifndef WLAN_BSSDEF_H_ */

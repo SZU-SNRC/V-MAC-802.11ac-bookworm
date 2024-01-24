@@ -40,7 +40,7 @@
 
 u8
 CheckRFGainOffset(
-	struct PHY_DM_STRUCT    *pDM_Odm,
+	struct dm_struct    *pDM_Odm,
 	PWRTRACK_METHOD 	Method,
 	u8				RFPath
 	)
@@ -109,7 +109,7 @@ CheckRFGainOffset(
 
 VOID
 ODM_TxPwrTrackSetPwr8814A(
-	struct PHY_DM_STRUCT    *pDM_Odm,
+	struct dm_struct    *pDM_Odm,
 	PWRTRACK_METHOD 	Method,
 	u8 				RFPath,
 	u8 				ChannelMappedIndex
@@ -190,7 +190,7 @@ ODM_TxPwrTrackSetPwr8814A(
 
 VOID
 GetDeltaSwingTable_8814A(
-	IN 	struct PHY_DM_STRUCT    *pDM_Odm,
+	IN 	struct dm_struct    *pDM_Odm,
 	OUT pu8 			*TemperatureUP_A,
 	OUT pu8 			*TemperatureDOWN_A,
 	OUT pu8 			*TemperatureUP_B,
@@ -241,7 +241,7 @@ GetDeltaSwingTable_8814A(
 
 VOID
 GetDeltaSwingTable_8814A_PathCD(
-	IN 	struct PHY_DM_STRUCT    *pDM_Odm,
+	IN 	struct dm_struct    *pDM_Odm,
 	OUT pu8 			*TemperatureUP_C,
 	OUT pu8 			*TemperatureDOWN_C,
 	OUT pu8 			*TemperatureUP_D,
@@ -325,7 +325,7 @@ ODM_CheckPowerStatus(
 {
 	/*
 	   HAL_DATA_TYPE		*pHalData = GET_HAL_DATA(Adapter);
-	   struct PHY_DM_STRUCT    *pDM_Odm = &pHalData->DM_OutSrc;
+	   struct dm_struct    *pDM_Odm = &pHalData->DM_OutSrc;
 	   RT_RF_POWER_STATE 	rtState;
 	   PMGNT_INFO			pMgntInfo	= &(Adapter->MgntInfo);
 
@@ -1189,12 +1189,9 @@ VOID
 #define		DP_DPK_NUM			3
 #define		DP_DPK_VALUE_NUM	2
 
-
-
-
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 //digital predistortion
-VOID	
+VOID
 	phy_DigitalPredistortion_8814A(
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
 			IN	PADAPTER	pAdapter,
@@ -1213,9 +1210,9 @@ VOID
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
 	PDM_ODM_T		pDM_Odm = &pHalData->DM_OutSrc;
 #endif
-#endif	
+#endif
 
-	u32			tmpReg, tmpReg2, index,  i;		
+	u32			tmpReg, tmpReg2, index,  i;
 	u8			path, pathbound = PATH_NUM;
 	u32			AFE_backup[IQK_ADDA_REG_NUM];
 	u32			AFE_REG[IQK_ADDA_REG_NUM] = {	
